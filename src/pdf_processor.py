@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import fitz  # PyMuPDF
 import os
 import base64
@@ -6,6 +7,7 @@ import io
 from typing import List, Dict, Tuple
 from pathlib import Path
 import logging
+from .font_utils import font_manager
 
 logger = logging.getLogger(__name__)
 
@@ -187,12 +189,13 @@ class PDFProcessor:
             if ocr_text:
                 full_text += f"\n文字內容: {ocr_text}"
             
-            page.insert_textbox(
+            # 使用字體管理器插入文字
+            font_manager.insert_text_with_font(
+                page,
                 text_rect,
                 full_text,
                 fontsize=8,
-                color=(0, 0, 1),  # 藍色
-                fontname="helv"
+                color=(0, 0, 1)  # 藍色
             )
         
         doc.save(output_path)
@@ -218,12 +221,13 @@ class PDFProcessor:
                     page_rect.y1 - 20
                 )
                 
-                page.insert_textbox(
+                # 使用字體管理器插入文字
+                font_manager.insert_text_with_font(
+                    page,
                     text_rect,
                     f"頁面 OCR 結果: {ocr_text}",
                     fontsize=8,
-                    color=(0, 0, 1),  # 藍色
-                    fontname="helv"
+                    color=(0, 0, 1)  # 藍色
                 )
         
         doc.save(output_path)

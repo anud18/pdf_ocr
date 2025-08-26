@@ -1,5 +1,10 @@
 FROM python:3.11-slim
 
+# 設置 UTF-8 環境變數
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV PYTHONIOENCODING=utf-8
+
 WORKDIR /app
 
 # 安裝系統依賴
@@ -7,7 +12,9 @@ RUN apt-get update && apt-get install -y \
     poppler-utils \
     libxml2-dev \
     libxslt-dev \
-    && rm -rf /var/lib/apt/lists/*
+    locales \
+    && rm -rf /var/lib/apt/lists/* \
+    && locale-gen en_US.UTF-8
 
 # 複製需求文件
 COPY requirements.txt .

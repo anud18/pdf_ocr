@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import os
 import sys
 import logging
 import time
 from pathlib import Path
+
+# 設置 UTF-8 編碼
+import locale
+import codecs
+sys.stdout = codecs.getwriter('utf-8')(sys.stdout.detach())
+sys.stderr = codecs.getwriter('utf-8')(sys.stderr.detach())
 
 # 添加 src 目錄到 Python 路徑
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))

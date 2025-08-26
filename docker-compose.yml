@@ -36,8 +36,12 @@ services:
       - ./input:/app/input
       - ./output:/app/output
       - ./temp:/app/temp
+      - ./extracted_images:/app/extracted_images
     environment:
       - VLLM_API_URL=http://vllm-qwen:8000
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      - PYTHONIOENCODING=utf-8
     depends_on:
       - vllm-qwen
     restart: "no"
