@@ -25,6 +25,55 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def _soft_break_long_run(s: str, run_limit: int = 48, break_with: str = "\u200b") -> str:
+    """針對無空白的長連續字元（例如純數字）插入零寬斷行符，避免 PDF 註解渲染失敗"""
+    if not s:
+        return s
+    run = 0
+    out = []
+    for ch in s:
+        if ch.isspace():
+            run = 0
+            out.append(ch)
+            continue
+        out.append(ch)
+        run += 1
+        if run >= run_limit:
+            out.append(break_with)
+            run = 0
+    return "".join(out)
+
+def sanitize_text_for_pdf(text: str, max_line_len: int = 200, total_cap: int = 15000) -> str:
+    """清理與斷行，避免長行或控制字元導致無法寫入 PDF"""
+    if text is None:
+        return ""
+    if not isinstance(text, str):
+        text = str(text)
+
+    # 標準化換行與移除 NUL
+    text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "")
+
+    sanitized_lines = []
+    for line in text.split("\n"):
+        # 對無空白的長行插入零寬斷行符
+        if line and (" " not in line and "\t" not in line):
+            line = _soft_break_long_run(line, run_limit=48, break_with="\u200b")
+
+        # 強制切成多行，避免超長行
+        if len(line) > max_line_len:
+            for i in range(0, len(line), max_line_len):
+                sanitized_lines.append(line[i:i + max_line_len])
+        else:
+            sanitized_lines.append(line)
+
+    out = "\n".join(sanitized_lines)
+
+    # 防止超大文字造成 PDF 寫入問題
+    if len(out) > total_cap:
+        out = out[:total_cap] + "\n…（內容過長，已截斷）"
+
+    return out
+
 def wait_for_vllm_ready(vlm_client: QwenVLMClient, max_retries: int = 30):
     """等待 vLLM 服務準備就緒"""
     logger.info("等待 vLLM 服務啟動...")
@@ -171,9 +220,15 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                     ocr_result = vlm_client.analyze_image(image_base64, "ocr")
                     ocr_text = ocr_result.get("content", "無文字內容") if ocr_result["success"] else "OCR 分析失敗"
                     print(f"OCR 結果: {ocr_text}")
+                
+                # 清洗並斷行，避免純數字長行寫入 PDF 失敗
+                sanitized_ocr = sanitize_text_for_pdf(ocr_text)
+                if sanitized_ocr != ocr_text:
+                    logger.info(f"第 {i+1} 頁 OCR 內容已清洗/斷行以適配 PDF")
+
                 pages_ocr_results.append({
                     'page_num': page_info['page_num'],
-                    'ocr_text': ocr_text
+                    'ocr_text': sanitized_ocr
                 })
                 
                 # 打印 OCR 結果
@@ -241,11 +296,17 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                 else:
                     analysis_result = vlm_client.get_image_description_and_ocr(image_base64)
                 
+                # 對描述與 OCR 文字做清洗
+                desc = sanitize_text_for_pdf(analysis_result.get('description', ''))
+                ocr_txt = sanitize_text_for_pdf(analysis_result.get('ocr_text', ''))
+                if desc != analysis_result.get('description', '') or ocr_txt != analysis_result.get('ocr_text', ''):
+                    logger.info(f"圖片 {i+1} 文字內容已清洗/斷行以適配 PDF")
+
                 images_descriptions.append({
                     'page_num': img_info['page_num'],
                     'rect': img_info['rect'],
-                    'description': analysis_result['description'],
-                    'ocr_text': analysis_result['ocr_text']
+                    'description': desc,
+                    'ocr_text': ocr_txt
                 })
                 
                 # 打印分析結果
