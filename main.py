@@ -102,17 +102,19 @@ def print_pdf_images_info(input_pdf_path: str):
         logger.error(f"分析 PDF 圖片時發生錯誤: {str(e)}")
         return []
 
-def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mode: bool = False):
+def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mode: bool = False, test_mode: bool = False):
     """處理 PDF 文件，提取圖片並使用 VLM 分析"""
     
     # 初始化組件
     pdf_processor = PDFProcessor()
     vlm_client = QwenVLMClient(os.getenv("VLLM_API_URL", "http://localhost:8000"))
     
-    # 等待 vLLM 服務準備就緒
-    if not wait_for_vllm_ready(vlm_client):
-        logger.error("無法連接到 vLLM 服務")
-        return False
+    # 測試模式跳過 VLM 服務檢查
+    if not test_mode:
+        # 等待 vLLM 服務準備就緒
+        if not wait_for_vllm_ready(vlm_client):
+            logger.error("無法連接到 vLLM 服務")
+            return False
     
     try:
         logger.info(f"開始處理 PDF: {input_pdf_path}")
@@ -131,6 +133,10 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
             # 對每頁進行 OCR
             pages_ocr_results = []
             
+            print(f"\n=== 頁面 OCR 結果 ===")
+            print(f"文件: {input_pdf_path}")
+            print(f"總共 {len(pages_info)} 頁\n")
+            
             for i, page_info in enumerate(pages_info):
                 logger.info(f"對第 {i+1}/{len(pages_info)} 頁進行 OCR...")
                 
@@ -138,15 +144,30 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                 image_base64 = pdf_processor.image_to_base64(page_info['image'])
                 
                 # 使用 VLM 進行 OCR
-                ocr_result = vlm_client.analyze_image(image_base64, "ocr")
-                ocr_text = ocr_result.get("content", "無文字內容") if ocr_result["success"] else "OCR 分析失敗"
+                if test_mode:
+                    # 測試模式：模擬 OCR 結果
+                    ocr_text = f"第 {i+1} 頁的模擬 OCR 文字內容 - 這是一個測試結果"
+                else:
+                    ocr_result = vlm_client.analyze_image(image_base64, "ocr")
+                    ocr_text = ocr_result.get("content", "無文字內容") if ocr_result["success"] else "OCR 分析失敗"
                 
                 pages_ocr_results.append({
                     'page_num': page_info['page_num'],
                     'ocr_text': ocr_text
                 })
                 
+                # 打印 OCR 結果
+                print(f"第 {i+1} 頁 OCR 結果:")
+                print(f"  頁面尺寸: {page_info['width']}x{page_info['height']} 像素")
+                if ocr_text and ocr_text != "無文字內容" and ocr_text != "OCR 分析失敗":
+                    print(f"  識別文字: {ocr_text}")
+                else:
+                    print(f"  識別文字: {ocr_text}")
+                print("-" * 50)
+                
                 logger.info(f"第 {i+1} 頁 OCR 完成")
+            
+            print(f"=== 頁面 OCR 完成 ===\n")
             
             # 創建增強的 PDF
             logger.info("創建增強的 PDF...")
@@ -169,6 +190,10 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
             # 分析每張圖片
             images_descriptions = []
             
+            print(f"\n=== 圖片分析和 OCR 結果 ===")
+            print(f"文件: {input_pdf_path}")
+            print(f"總共 {len(images_info)} 張圖片\n")
+            
             for i, img_info in enumerate(images_info):
                 logger.info(f"分析第 {i+1}/{len(images_info)} 張圖片...")
                 
@@ -176,7 +201,14 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                 image_base64 = pdf_processor.image_to_base64(img_info['image'])
                 
                 # 使用 VLM 分析
-                analysis_result = vlm_client.get_image_description_and_ocr(image_base64)
+                if test_mode:
+                    # 測試模式：模擬分析結果
+                    analysis_result = {
+                        'description': f"圖片 {i+1} 的模擬描述 - 這是一個測試圖片",
+                        'ocr_text': f"圖片 {i+1} 的模擬 OCR 文字" if i % 3 == 0 else "無文字內容"
+                    }
+                else:
+                    analysis_result = vlm_client.get_image_description_and_ocr(image_base64)
                 
                 images_descriptions.append({
                     'page_num': img_info['page_num'],
@@ -185,7 +217,21 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                     'ocr_text': analysis_result['ocr_text']
                 })
                 
+                # 打印分析結果
+                print(f"圖片 {i+1} 分析結果:")
+                print(f"  頁面: {img_info['page_num'] + 1}")
+                print(f"  位置: x={img_info['rect'].x0:.1f}, y={img_info['rect'].y0:.1f}")
+                print(f"  尺寸: {img_info['image'].size[0]}x{img_info['image'].size[1]} 像素")
+                print(f"  描述: {analysis_result['description']}")
+                if analysis_result['ocr_text'] and analysis_result['ocr_text'] != "無文字內容":
+                    print(f"  OCR 文字: {analysis_result['ocr_text']}")
+                else:
+                    print(f"  OCR 文字: 無文字內容")
+                print("-" * 50)
+                
                 logger.info(f"圖片 {i+1} 分析完成")
+            
+            print(f"=== 圖片分析完成 ===\n")
             
             # 創建增強的 PDF
             logger.info("創建增強的 PDF...")
@@ -270,7 +316,12 @@ def main():
         output_file = output_dir / f"enhanced_{pdf_file.name}"
         logger.info(f"處理文件: {pdf_file.name}")
         
-        success = process_pdf_with_vlm(str(pdf_file), str(output_file), use_page_mode)
+        # 檢查是否要使用測試模式
+        test_mode = os.getenv("TEST_MODE", "false").lower() == "true"
+        if test_mode:
+            print("🧪 使用測試模式（模擬 OCR 結果）")
+        
+        success = process_pdf_with_vlm(str(pdf_file), str(output_file), use_page_mode, test_mode)
         
         if success:
             logger.info(f"✅ {pdf_file.name} 處理成功")
