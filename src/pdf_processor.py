@@ -213,7 +213,7 @@ class PDFProcessor:
             
             if ocr_text and ocr_text != "無文字內容":
                 # 在頁面底部添加 OCR 結果
-                print(f"新增頁面 {page_num+1} 的 OCR 結果")
+                print(f"新增頁面 {page_num+1} 的 OCR 結果: {ocr_text}")
                 page_rect = page.rect
                 text_rect = fitz.Rect(
                     page_rect.x0 + 50,
@@ -223,13 +223,30 @@ class PDFProcessor:
                 )
                 
                 # 使用字體管理器插入文字
-                font_manager.insert_text_with_font(
+                success = font_manager.insert_text_with_font(
                     page,
                     text_rect,
                     f"頁面 OCR 結果: {ocr_text}",
-                    fontsize=8,
-                    color=(0, 0, 1)  # 藍色
+                    fontsize=12,
+                    color=(1, 0, 0)  # 紅色，更明顯
                 )
+                
+                if not success:
+                    # 如果字體管理器失敗，嘗試直接插入
+                    print(f"字體管理器失敗，嘗試直接插入文字")
+                    try:
+                        page.insert_textbox(
+                            text_rect,
+                            f"頁面 OCR 結果: {ocr_text}",
+                            fontsize=12,
+                            color=(1, 0, 0),  # 紅色
+                            fontname="helv"
+                        )
+                        print(f"直接插入文字成功")
+                    except Exception as e:
+                        print(f"直接插入文字也失敗: {str(e)}")
+                else:
+                    print(f"字體管理器插入文字成功")
         
         doc.save(output_path)
         doc.close()

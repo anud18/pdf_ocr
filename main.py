@@ -163,6 +163,7 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                     continue
                 
                 # 使用 VLM 進行 OCR
+                ocr_text = ''
                 if test_mode:
                     # 測試模式：模擬 OCR 結果
                     ocr_text = f"第 {i+1} 頁的模擬 OCR 文字內容 - 這是一個測試結果"

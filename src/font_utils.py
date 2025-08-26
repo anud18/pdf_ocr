@@ -104,7 +104,7 @@ class FontManager:
                 color=color,
                 fontname=font_name
             )
-            logger.debug(f"使用字體 {font_name} 插入文字: {text[:20]}...")
+            logger.info(f"使用字體 {font_name} 插入文字成功: {text[:30]}...")
             return True
             
         except Exception as e:
@@ -119,7 +119,7 @@ class FontManager:
                     color=color,
                     fontname="helv"
                 )
-                logger.debug(f"回退到默認字體插入文字: {text[:20]}...")
+                logger.info(f"回退到默認字體插入文字成功: {text[:30]}...")
                 return True
                 
             except Exception as e2:
