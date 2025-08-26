@@ -36,6 +36,38 @@ def wait_for_vllm_ready(vlm_client: QwenVLMClient, max_retries: int = 30):
     logger.error("vLLM 服務啟動超時")
     return False
 
+def print_pdf_images_info(input_pdf_path: str):
+    """打印 PDF 中的圖片信息"""
+    pdf_processor = PDFProcessor()
+    
+    try:
+        logger.info(f"分析 PDF 文件: {input_pdf_path}")
+        
+        # 提取圖片信息
+        images_info = pdf_processor.extract_images_from_pdf(input_pdf_path)
+        
+        print(f"\n=== PDF 圖片信息 ===")
+        print(f"文件: {input_pdf_path}")
+        print(f"總共找到 {len(images_info)} 張圖片\n")
+        
+        if not images_info:
+            print("此 PDF 中沒有找到任何圖片")
+            return
+        
+        for i, img_info in enumerate(images_info, 1):
+            print(f"圖片 {i}:")
+            print(f"  頁面: {img_info['page_num'] + 1}")
+            print(f"  位置: x={img_info['rect'].x0:.1f}, y={img_info['rect'].y0:.1f}")
+            print(f"  尺寸: 寬={img_info['rect'].width:.1f}, 高={img_info['rect'].height:.1f}")
+            print(f"  圖片尺寸: {img_info['image'].size[0]}x{img_info['image'].size[1]} 像素")
+            print(f"  圖片模式: {img_info['image'].mode}")
+            print()
+        
+        print(f"=== 分析完成 ===\n")
+        
+    except Exception as e:
+        logger.error(f"分析 PDF 圖片時發生錯誤: {str(e)}")
+
 def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str):
     """處理 PDF 文件，提取圖片並使用 VLM 分析"""
     
@@ -108,6 +140,22 @@ def main():
     if not pdf_files:
         logger.info("在 input 目錄中沒有找到 PDF 文件")
         logger.info("請將要處理的 PDF 文件放入 ./input 目錄")
+        return
+    
+    # 首先打印所有 PDF 文件中的圖片信息
+    print("\n" + "="*50)
+    print("開始分析 PDF 文件中的圖片...")
+    print("="*50)
+    
+    for pdf_file in pdf_files:
+        print_pdf_images_info(str(pdf_file))
+    
+    # 詢問用戶是否要繼續處理
+    print("圖片信息分析完成！")
+    user_input = input("是否要繼續使用 VLM 處理這些 PDF？(y/n): ").lower().strip()
+    
+    if user_input not in ['y', 'yes', '是']:
+        print("已取消處理")
         return
     
     # 處理每個 PDF 文件
