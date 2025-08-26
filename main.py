@@ -36,6 +36,38 @@ def wait_for_vllm_ready(vlm_client: QwenVLMClient, max_retries: int = 30):
     logger.error("vLLM 服務啟動超時")
     return False
 
+def save_images_to_folder(input_pdf_path: str, images_info: list) -> str:
+    """將圖片保存到資料夾"""
+    # 創建圖片保存目錄
+    pdf_name = Path(input_pdf_path).stem
+    images_dir = Path("./extracted_images") / pdf_name
+    images_dir.mkdir(parents=True, exist_ok=True)
+    
+    saved_images = []
+    
+    try:
+        logger.info(f"開始保存 {len(images_info)} 張圖片到 {images_dir}")
+        
+        for i, img_info in enumerate(images_info):
+            # 生成圖片文件名
+            page_num = img_info['page_num'] + 1
+            filename = f"page_{page_num:03d}_img_{i+1:03d}.png"
+            image_path = images_dir / filename
+            
+            # 保存圖片
+            img_info['image'].save(image_path, 'PNG')
+            saved_images.append(str(image_path))
+            
+            if (i + 1) % 50 == 0:  # 每50張圖片顯示一次進度
+                logger.info(f"已保存 {i+1}/{len(images_info)} 張圖片")
+        
+        logger.info(f"✅ 所有圖片已保存到: {images_dir}")
+        return str(images_dir)
+        
+    except Exception as e:
+        logger.error(f"保存圖片時發生錯誤: {str(e)}")
+        return ""
+
 def print_pdf_images_info(input_pdf_path: str):
     """打印 PDF 中的圖片信息"""
     pdf_processor = PDFProcessor()
@@ -52,7 +84,7 @@ def print_pdf_images_info(input_pdf_path: str):
         
         if not images_info:
             print("此 PDF 中沒有找到任何圖片")
-            return
+            return images_info
         
         for i, img_info in enumerate(images_info, 1):
             print(f"圖片 {i}:")
@@ -64,9 +96,11 @@ def print_pdf_images_info(input_pdf_path: str):
             print()
         
         print(f"=== 分析完成 ===\n")
+        return images_info
         
     except Exception as e:
         logger.error(f"分析 PDF 圖片時發生錯誤: {str(e)}")
+        return []
 
 def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str):
     """處理 PDF 文件，提取圖片並使用 VLM 分析"""
@@ -142,20 +176,34 @@ def main():
         logger.info("請將要處理的 PDF 文件放入 ./input 目錄")
         return
     
-    # 首先打印所有 PDF 文件中的圖片信息
+    # 首先打印所有 PDF 文件中的圖片信息並保存圖片
     print("\n" + "="*50)
     print("開始分析 PDF 文件中的圖片...")
     print("="*50)
     
+    pdf_images_data = {}  # 存儲每個PDF的圖片信息
+    
     for pdf_file in pdf_files:
-        print_pdf_images_info(str(pdf_file))
+        images_info = print_pdf_images_info(str(pdf_file))
+        pdf_images_data[str(pdf_file)] = images_info
+        
+        # 如果有圖片，保存到資料夾
+        if images_info:
+            print(f"正在保存 {pdf_file.name} 的圖片...")
+            images_dir = save_images_to_folder(str(pdf_file), images_info)
+            if images_dir:
+                print(f"✅ 圖片已保存到: {images_dir}\n")
+            else:
+                print(f"❌ 保存圖片失敗\n")
+        else:
+            print(f"📝 {pdf_file.name} 中沒有圖片需要保存\n")
     
     # 詢問用戶是否要繼續處理
-    print("圖片信息分析完成！")
+    print("圖片信息分析和保存完成！")
     user_input = input("是否要繼續使用 VLM 處理這些 PDF？(y/n): ").lower().strip()
     
     if user_input not in ['y', 'yes', '是']:
-        print("已取消處理")
+        print("已取消 VLM 處理，但圖片已保存完成")
         return
     
     # 處理每個 PDF 文件
