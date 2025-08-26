@@ -102,7 +102,7 @@ def print_pdf_images_info(input_pdf_path: str):
         logger.error(f"分析 PDF 圖片時發生錯誤: {str(e)}")
         return []
 
-def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str):
+def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mode: bool = False):
     """處理 PDF 文件，提取圖片並使用 VLM 分析"""
     
     # 初始化組件
@@ -117,40 +117,79 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str):
     try:
         logger.info(f"開始處理 PDF: {input_pdf_path}")
         
-        # 提取圖片
-        images_info = pdf_processor.extract_images_from_pdf(input_pdf_path)
-        logger.info(f"找到 {len(images_info)} 張圖片")
-        
-        if not images_info:
-            logger.info("PDF 中沒有找到圖片，直接複製原文件")
-            import shutil
-            shutil.copy2(input_pdf_path, output_pdf_path)
-            return True
-        
-        # 分析每張圖片
-        images_descriptions = []
-        
-        for i, img_info in enumerate(images_info):
-            logger.info(f"分析第 {i+1}/{len(images_info)} 張圖片...")
+        if use_page_mode:
+            # 頁面模式：將每頁轉換為圖片進行 OCR
+            logger.info("使用頁面模式進行 OCR 處理...")
             
-            # 轉換為 base64
-            image_base64 = pdf_processor.image_to_base64(img_info['image'])
+            # 將頁面轉換為圖片
+            pages_info = pdf_processor.convert_pages_to_images(input_pdf_path)
+            logger.info(f"轉換了 {len(pages_info)} 頁")
             
-            # 使用 VLM 分析
-            analysis_result = vlm_client.get_image_description_and_ocr(image_base64)
+            # 保存頁面圖片
+            pages_dir = pdf_processor.save_pages_as_images(input_pdf_path, "./extracted_pages")
             
-            images_descriptions.append({
-                'page_num': img_info['page_num'],
-                'rect': img_info['rect'],
-                'description': analysis_result['description'],
-                'ocr_text': analysis_result['ocr_text']
-            })
+            # 對每頁進行 OCR
+            pages_ocr_results = []
             
-            logger.info(f"圖片 {i+1} 分析完成")
-        
-        # 創建增強的 PDF
-        logger.info("創建增強的 PDF...")
-        pdf_processor.create_enhanced_pdf(input_pdf_path, images_descriptions, output_pdf_path)
+            for i, page_info in enumerate(pages_info):
+                logger.info(f"對第 {i+1}/{len(pages_info)} 頁進行 OCR...")
+                
+                # 轉換為 base64
+                image_base64 = pdf_processor.image_to_base64(page_info['image'])
+                
+                # 使用 VLM 進行 OCR
+                ocr_result = vlm_client.analyze_image(image_base64, "ocr")
+                ocr_text = ocr_result.get("content", "無文字內容") if ocr_result["success"] else "OCR 分析失敗"
+                
+                pages_ocr_results.append({
+                    'page_num': page_info['page_num'],
+                    'ocr_text': ocr_text
+                })
+                
+                logger.info(f"第 {i+1} 頁 OCR 完成")
+            
+            # 創建增強的 PDF
+            logger.info("創建增強的 PDF...")
+            pdf_processor.create_enhanced_pdf_from_pages(input_pdf_path, pages_ocr_results, output_pdf_path)
+            
+        else:
+            # 圖片模式：提取個別圖片進行分析
+            logger.info("使用圖片模式進行處理...")
+            
+            # 提取圖片
+            images_info = pdf_processor.extract_images_from_pdf(input_pdf_path)
+            logger.info(f"找到 {len(images_info)} 張圖片")
+            
+            if not images_info:
+                logger.info("PDF 中沒有找到圖片，直接複製原文件")
+                import shutil
+                shutil.copy2(input_pdf_path, output_pdf_path)
+                return True
+            
+            # 分析每張圖片
+            images_descriptions = []
+            
+            for i, img_info in enumerate(images_info):
+                logger.info(f"分析第 {i+1}/{len(images_info)} 張圖片...")
+                
+                # 轉換為 base64
+                image_base64 = pdf_processor.image_to_base64(img_info['image'])
+                
+                # 使用 VLM 分析
+                analysis_result = vlm_client.get_image_description_and_ocr(image_base64)
+                
+                images_descriptions.append({
+                    'page_num': img_info['page_num'],
+                    'rect': img_info['rect'],
+                    'description': analysis_result['description'],
+                    'ocr_text': analysis_result['ocr_text']
+                })
+                
+                logger.info(f"圖片 {i+1} 分析完成")
+            
+            # 創建增強的 PDF
+            logger.info("創建增強的 PDF...")
+            pdf_processor.create_enhanced_pdf(input_pdf_path, images_descriptions, output_pdf_path)
         
         logger.info(f"處理完成！輸出文件: {output_pdf_path}")
         return True
@@ -208,10 +247,30 @@ def main():
     
     # 處理每個 PDF 文件
     for pdf_file in pdf_files:
+        images_info = pdf_images_data[str(pdf_file)]
+        use_page_mode = False
+        
+        # 檢查圖片數量，如果超過 10 個則詢問用戶
+        if len(images_info) > 10:
+            print(f"\n📊 {pdf_file.name} 包含 {len(images_info)} 張圖片")
+            print("由於圖片數量較多，建議使用以下處理方式：")
+            print("1. 圖片模式：逐一分析每張圖片（較詳細但耗時）")
+            print("2. 頁面模式：將每頁轉換為圖片進行 OCR（較快速）")
+            
+            mode_choice = input("請選擇處理模式 (1=圖片模式, 2=頁面模式): ").strip()
+            
+            if mode_choice == "2":
+                use_page_mode = True
+                print(f"✅ 選擇頁面模式處理 {pdf_file.name}")
+            else:
+                print(f"✅ 選擇圖片模式處理 {pdf_file.name}")
+        else:
+            print(f"\n📊 {pdf_file.name} 包含 {len(images_info)} 張圖片，使用圖片模式處理")
+        
         output_file = output_dir / f"enhanced_{pdf_file.name}"
         logger.info(f"處理文件: {pdf_file.name}")
         
-        success = process_pdf_with_vlm(str(pdf_file), str(output_file))
+        success = process_pdf_with_vlm(str(pdf_file), str(output_file), use_page_mode)
         
         if success:
             logger.info(f"✅ {pdf_file.name} 處理成功")
