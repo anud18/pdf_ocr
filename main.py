@@ -169,7 +169,7 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                 else:
                     ocr_result = vlm_client.analyze_image(image_base64, "ocr")
                     ocr_text = ocr_result.get("content", "無文字內容") if ocr_result["success"] else "OCR 分析失敗"
-                
+                    print(f"OCR 結果: {ocr_text}")
                 pages_ocr_results.append({
                     'page_num': page_info['page_num'],
                     'ocr_text': ocr_text
