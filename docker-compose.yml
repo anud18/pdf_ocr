@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  vllm-qwen:
+    image: vllm/vllm-openai:latest
+    container_name: qwen2.5-vl-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/models
+      - /dev/shm:/dev/shm
+    environment:
+      - CUDA_VISIBLE_DEVICES=2
+    command: >
+      --model Qwen/Qwen2.5-VL-32B-Instruct-AWQ
+      --served-model-name qwen2.5-vl
+      --host 0.0.0.0
+      --port 8000
+      --max-model-len 8192
+      --gpu-memory-utilization 0.7
+      --quantization awq
+      --trust-remote-code
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  pdf-processor:
+    build: .
+    container_name: pdf-image-processor
+    volumes:
+      - ./input:/app/input
+      - ./output:/app/output
+      - ./temp:/app/temp
+    environment:
+      - VLLM_API_URL=http://vllm-qwen:8000
+    depends_on:
+      - vllm-qwen
+    restart: "no"
