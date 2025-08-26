@@ -25,6 +25,24 @@ class QwenVLMClient:
             包含分析結果的字典
         """
         
+        # 驗證 base64 圖片數據
+        if not image_base64 or not image_base64.strip():
+            logger.warning("收到空的 base64 圖片數據")
+            return {"success": False, "error": "圖片數據為空"}
+        
+        # 驗證 base64 數據格式
+        try:
+            # 嘗試解碼 base64 以驗證格式
+            import base64 as b64
+            decoded_data = b64.b64decode(image_base64)
+            if len(decoded_data) < 50:  # 太小的數據可能無效（調整為更寬鬆的限制以支持測試圖片）
+                logger.warning(f"圖片數據較小: {len(decoded_data)} 字節")
+                if len(decoded_data) < 20:  # 只有極小的數據才拒絕
+                    return {"success": False, "error": "圖片數據太小，可能無效"}
+        except Exception as e:
+            logger.error(f"無效的 base64 數據: {str(e)}")
+            return {"success": False, "error": "無效的 base64 圖片數據"}
+        
         if prompt_type == "description":
             system_prompt = """你是一個專業的圖片分析助手。請詳細描述這張圖片的內容，包括：
 1. 主要物體和場景

@@ -22,15 +22,18 @@ def wait_for_vllm_ready(vlm_client: QwenVLMClient, max_retries: int = 30):
     """等待 vLLM 服務準備就緒"""
     logger.info("等待 vLLM 服務啟動...")
     
+    # 創建一個10x10像素的白色測試圖片 base64 數據
+    test_image_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAFUlEQVR4nGP8//8/A27AhEduBEsDAKXjAxF9kqZqAAAAAElFTkSuQmCC"
+    
     for i in range(max_retries):
         try:
             # 嘗試發送一個簡單的測試請求
-            test_result = vlm_client.analyze_image("", "description")
-            if "error" not in test_result or "Connection" not in str(test_result.get("error", "")):
+            test_result = vlm_client.analyze_image(test_image_base64, "description")
+            if test_result.get("success", False) or ("error" in test_result and "Connection" not in str(test_result.get("error", ""))):
                 logger.info("vLLM 服務已準備就緒")
                 return True
         except Exception as e:
-            logger.info(f"等待中... ({i+1}/{max_retries})")
+            logger.info(f"等待中... ({i+1}/{max_retries}): {str(e)}")
             time.sleep(10)
     
     logger.error("vLLM 服務啟動超時")
@@ -137,6 +140,15 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                 # 轉換為 base64
                 image_base64 = pdf_processor.image_to_base64(page_info['image'])
                 
+                # 檢查 base64 數據是否有效
+                if not image_base64:
+                    logger.warning(f"第 {i+1} 頁 base64 轉換失敗，跳過 OCR")
+                    pages_ocr_results.append({
+                        'page_num': page_info['page_num'],
+                        'ocr_text': "頁面轉換失敗，無法進行 OCR"
+                    })
+                    continue
+                
                 # 使用 VLM 進行 OCR
                 ocr_result = vlm_client.analyze_image(image_base64, "ocr")
                 ocr_text = ocr_result.get("content", "無文字內容") if ocr_result["success"] else "OCR 分析失敗"
@@ -174,6 +186,17 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                 
                 # 轉換為 base64
                 image_base64 = pdf_processor.image_to_base64(img_info['image'])
+                
+                # 檢查 base64 數據是否有效
+                if not image_base64:
+                    logger.warning(f"圖片 {i+1} base64 轉換失敗，跳過分析")
+                    images_descriptions.append({
+                        'page_num': img_info['page_num'],
+                        'rect': img_info['rect'],
+                        'description': "圖片轉換失敗，無法分析",
+                        'ocr_text': "無法提取文字"
+                    })
+                    continue
                 
                 # 使用 VLM 分析
                 analysis_result = vlm_client.get_image_description_and_ocr(image_base64)

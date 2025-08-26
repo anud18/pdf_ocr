@@ -24,38 +24,98 @@ class PDFProcessor:
             image_list = page.get_images()
             
             for img_index, img in enumerate(image_list):
-                # 獲取圖片數據
-                xref = img[0]
-                pix = fitz.Pixmap(doc, xref)
-                
-                if pix.n - pix.alpha < 4:  # 確保不是 CMYK
-                    # 轉換為 PIL Image
-                    img_data = pix.tobytes("png")
-                    pil_image = Image.open(io.BytesIO(img_data))
+                try:
+                    # 獲取圖片數據
+                    xref = img[0]
+                    pix = fitz.Pixmap(doc, xref)
                     
-                    # 獲取圖片在頁面中的位置
-                    img_rects = page.get_image_rects(xref)
+                    if pix.n - pix.alpha < 4:  # 確保不是 CMYK
+                        # 轉換為 PIL Image
+                        img_data = pix.tobytes("png")
+                        
+                        # 驗證圖片數據
+                        if len(img_data) == 0:
+                            logger.warning(f"頁面 {page_num+1} 圖片 {img_index+1} 數據為空，跳過")
+                            pix = None
+                            continue
+                        
+                        try:
+                            pil_image = Image.open(io.BytesIO(img_data))
+                            
+                            # 驗證圖片是否有效
+                            if pil_image.size[0] <= 0 or pil_image.size[1] <= 0:
+                                logger.warning(f"頁面 {page_num+1} 圖片 {img_index+1} 尺寸無效: {pil_image.size}")
+                                pix = None
+                                continue
+                            
+                            # 嘗試驗證圖片數據完整性
+                            pil_image.verify()
+                            # 重新加載圖片（verify 後需要重新加載）
+                            pil_image = Image.open(io.BytesIO(img_data))
+                            
+                        except Exception as e:
+                            logger.warning(f"頁面 {page_num+1} 圖片 {img_index+1} 無法解析: {str(e)}")
+                            pix = None
+                            continue
+                        
+                        # 獲取圖片在頁面中的位置
+                        img_rects = page.get_image_rects(xref)
+                        
+                        for rect in img_rects:
+                            images_info.append({
+                                'page_num': page_num,
+                                'image': pil_image,
+                                'rect': rect,
+                                'xref': xref,
+                                'img_index': img_index
+                            })
                     
-                    for rect in img_rects:
-                        images_info.append({
-                            'page_num': page_num,
-                            'image': pil_image,
-                            'rect': rect,
-                            'xref': xref,
-                            'img_index': img_index
-                        })
-                
-                pix = None
+                    pix = None
+                    
+                except Exception as e:
+                    logger.error(f"處理頁面 {page_num+1} 圖片 {img_index+1} 時發生錯誤: {str(e)}")
+                    continue
         
         doc.close()
         return images_info
     
     def image_to_base64(self, image: Image.Image) -> str:
         """將 PIL Image 轉換為 base64 字符串"""
-        buffer = io.BytesIO()
-        image.save(buffer, format='PNG')
-        img_str = base64.b64encode(buffer.getvalue()).decode()
-        return img_str
+        if image is None:
+            logger.error("收到空的圖片對象")
+            return ""
+        
+        try:
+            # 驗證圖片尺寸
+            if image.size[0] <= 0 or image.size[1] <= 0:
+                logger.error(f"無效的圖片尺寸: {image.size}")
+                return ""
+            
+            buffer = io.BytesIO()
+            
+            # 確保圖片格式兼容
+            if image.mode in ('RGBA', 'LA', 'P'):
+                # 轉換為 RGB 格式以確保兼容性
+                image = image.convert('RGB')
+            elif image.mode == 'L':
+                # 灰度圖片轉為 RGB
+                image = image.convert('RGB')
+            
+            image.save(buffer, format='PNG')
+            buffer_data = buffer.getvalue()
+            
+            # 驗證生成的數據
+            if len(buffer_data) == 0:
+                logger.error("圖片轉換後數據為空")
+                return ""
+            
+            img_str = base64.b64encode(buffer_data).decode()
+            logger.debug(f"圖片轉換為 base64，大小: {len(img_str)} 字符")
+            return img_str
+            
+        except Exception as e:
+            logger.error(f"圖片轉換為 base64 失敗: {str(e)}")
+            return ""
     
     def convert_pages_to_images(self, pdf_path: str, dpi: int = 150) -> List[Dict]:
         """將 PDF 頁面轉換為圖片"""
