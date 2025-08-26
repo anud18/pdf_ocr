@@ -213,6 +213,7 @@ class PDFProcessor:
             
             if ocr_text and ocr_text != "無文字內容":
                 # 在頁面底部添加 OCR 結果
+                print(f"新增頁面 {page_num+1} 的 OCR 結果
                 page_rect = page.rect
                 text_rect = fitz.Rect(
                     page_rect.x0 + 50,
