@@ -52,7 +52,7 @@ class QwenVLMClient:
             user_prompt = "請分析這張圖片。"
         
         payload = {
-            "model": "qwen2.5-vl",
+            "model": "Qwen/Qwen2.5-VL-32B-Instruct",
             "messages": [
                 {
                     "role": "system",
