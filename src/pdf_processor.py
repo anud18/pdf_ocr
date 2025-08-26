@@ -7,7 +7,7 @@ import io
 from typing import List, Dict, Tuple
 from pathlib import Path
 import logging
-from .font_utils import font_manager
+from font_utils import font_manager
 
 logger = logging.getLogger(__name__)
 
