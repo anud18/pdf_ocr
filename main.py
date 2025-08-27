@@ -43,7 +43,7 @@ def _soft_break_long_run(s: str, run_limit: int = 48, break_with: str = "\u200b"
             run = 0
     return "".join(out)
 
-def sanitize_text_for_pdf(text: str, max_line_len: int = 200, total_cap: int = 15000) -> str:
+def sanitize_text_for_pdf(text: str, max_line_len: int = 200, total_cap: int = None) -> str:
     """清理與斷行，避免長行或控制字元導致無法寫入 PDF"""
     if text is None:
         return ""
@@ -68,8 +68,9 @@ def sanitize_text_for_pdf(text: str, max_line_len: int = 200, total_cap: int = 1
 
     out = "\n".join(sanitized_lines)
 
-    # 防止超大文字造成 PDF 寫入問題
-    if len(out) > total_cap:
+    # 移除文字數量限制，允許完整的文字內容
+    # 如果指定了 total_cap 才進行截斷
+    if total_cap is not None and len(out) > total_cap:
         out = out[:total_cap] + "\n…（內容過長，已截斷）"
 
     return out
@@ -215,7 +216,17 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                 ocr_text = ''
                 if test_mode:
                     # 測試模式：模擬 OCR 結果
-                    ocr_text = f"第 {i+1} 頁的模擬 OCR 文字內容 - 這是一個測試結果"
+                    # ocr_text = f"第 {i+1} 頁的模擬 OCR 文字內容 - 這是一個測試結果"
+                    ocr_text = """
+
+                    456645
+                    4564564
+                    4564564
+                    4564564
+                    4564564
+                    4564564
+                    4564564
+                    """
                 else:
                     ocr_result = vlm_client.analyze_image(image_base64, "ocr")
                     ocr_text = ocr_result.get("content", "無文字內容") if ocr_result["success"] else "OCR 分析失敗"

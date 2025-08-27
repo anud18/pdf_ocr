@@ -176,12 +176,13 @@ class PDFProcessor:
             description = img_desc['description']
             ocr_text = img_desc.get('ocr_text', '')
             
-            # 在圖片下方添加描述文字
+            # 從左上角開始放置文字，使用較小的字體，擴大文字區域
+            page_rect = page.rect
             text_rect = fitz.Rect(
-                rect.x0, 
-                rect.y1 + 5, 
-                rect.x1, 
-                rect.y1 + 50
+                page_rect.x0 + 10,  # 左邊距 10
+                page_rect.y0 + 10,  # 上邊距 10
+                page_rect.x1 - 10,  # 右邊距 10
+                page_rect.y1 - 10   # 使用整個頁面高度，底部留 10 像素邊距
             )
             
             # 添加描述文字
@@ -189,12 +190,12 @@ class PDFProcessor:
             if ocr_text:
                 full_text += f"\n文字內容: {ocr_text}"
             
-            # 使用字體管理器插入文字
+            # 使用字體管理器插入文字，使用較小字體
             font_manager.insert_text_with_font(
                 page,
                 text_rect,
                 full_text,
-                fontsize=8,
+                fontsize=6,  # 從 8 改為 6，字體更小
                 color=(0, 0, 1)  # 藍色
             )
         
@@ -212,22 +213,22 @@ class PDFProcessor:
             ocr_text = page_result.get('ocr_text', '')
             
             if ocr_text and ocr_text != "無文字內容":
-                # 在頁面底部添加 OCR 結果
+                # 從左上角開始添加 OCR 結果，使用整個頁面空間
                 print(f"新增頁面 {page_num+1} 的 OCR 結果: {ocr_text}")
                 page_rect = page.rect
                 text_rect = fitz.Rect(
-                    page_rect.x0 + 50,
-                    page_rect.y1 - 100,
-                    page_rect.x1 - 50,
-                    page_rect.y1 - 20
+                    page_rect.x0 + 10,  # 左邊距 10
+                    page_rect.y0 + 10,  # 上邊距 10
+                    page_rect.x1 - 10,  # 右邊距 10
+                    page_rect.y1 - 10   # 使用整個頁面高度，底部留 10 像素邊距
                 )
                 
-                # 使用字體管理器插入文字
+                # 使用字體管理器插入文字，使用較小字體
                 success = font_manager.insert_text_with_font(
                     page,
                     text_rect,
                     f"頁面 OCR 結果: {ocr_text}",
-                    fontsize=12,
+                    fontsize=8,  # 從 12 改為 8，字體更小
                     color=(1, 0, 0)  # 紅色，更明顯
                 )
                 
