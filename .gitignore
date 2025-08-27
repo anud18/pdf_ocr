@@ -99,13 +99,7 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
-# Application specific
-temp/
-extracted_images/
-extracted_pages/
-input/
-output/
-*.pdf
+
 
 # IDE files
 .vscode/
