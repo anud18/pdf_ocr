@@ -104,7 +104,7 @@ class QwenVLMClient:
                 f"{self.api_url}/v1/chat/completions",
                 headers=self.headers,
                 json=payload,
-                timeout=60
+                timeout=120
             )
             
             if response.status_code == 200:
