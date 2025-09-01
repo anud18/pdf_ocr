@@ -246,7 +246,7 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                     logger.info(f"開始並發 OCR 處理 {len(pages_base64_list)} 頁...")
                     
                     # 設置並發數，根據頁面數量調整
-                    max_concurrent = min(5, len(pages_base64_list))  # 最多5個並發
+                    max_concurrent = min(50, len(pages_base64_list))  # 最多5個並發
                     
                     ocr_results = vlm_client.analyze_images_concurrent_sync(
                         pages_base64_list, 
