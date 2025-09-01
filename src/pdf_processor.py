@@ -190,13 +190,14 @@ class PDFProcessor:
             if ocr_text:
                 full_text += f"\n文字內容: {ocr_text}"
             
-            # 使用字體管理器插入文字，使用較小字體
+            # 使用字體管理器插入文字，使用更小字體和緊湊行間距
             font_manager.insert_text_with_font(
                 page,
                 text_rect,
                 full_text,
-                fontsize=6,  # 從 8 改為 6，字體更小
-                color=(0, 0, 1)  # 藍色
+                fontsize=4,  # 字體大小 4
+                color=(0, 0, 1),  # 藍色
+                line_height=4.2  # 緊湊行間距，字體大小的 1.05 倍
             )
         
         doc.save(output_path)
@@ -223,13 +224,14 @@ class PDFProcessor:
                     page_rect.y1 - 10   # 使用整個頁面高度，底部留 10 像素邊距
                 )
                 
-                # 使用字體管理器插入文字，使用較小字體
+                # 使用字體管理器插入文字，使用更小字體和緊湊行間距
                 success = font_manager.insert_text_with_font(
                     page,
                     text_rect,
                     f"頁面 OCR 結果: {ocr_text}",
-                    fontsize=8,  # 從 12 改為 8，字體更小
-                    color=(1, 0, 0)  # 紅色，更明顯
+                    fontsize=5,  # 字體大小 5
+                    color=(1, 0, 0),  # 紅色，更明顯
+                    line_height=5.2  # 緊湊行間距，字體大小的 1.04 倍
                 )
                 
                 if not success:

@@ -92,17 +92,23 @@ class FontManager:
                 return True
         return False
     
-    def insert_text_with_font(self, page, rect, text, fontsize=8, color=(0, 0, 1)):
-        """使用適當的字體插入文字"""
+    def insert_text_with_font(self, page, rect, text, fontsize=8, color=(0, 0, 1), line_height=None):
+        """使用適當的字體插入文字，支持緊湊行間距"""
         font_name = self.get_best_font_for_text(text)
         
+        # 如果沒有指定行高，使用緊湊的行間距（字體大小的 1.1 倍）
+        if line_height is None:
+            line_height = fontsize * 1.1
+        
         try:
+            # 使用 insert_textbox 並設置緊湊的行間距
             page.insert_textbox(
                 rect,
                 text,
                 fontsize=fontsize,
                 color=color,
-                fontname=font_name
+                fontname=font_name,
+                lineheight=line_height  # 設置行間距
             )
             logger.info(f"使用字體 {font_name} 插入文字成功: {text[:30]}...")
             return True
@@ -117,7 +123,8 @@ class FontManager:
                     text,
                     fontsize=fontsize,
                     color=color,
-                    fontname="helv"
+                    fontname="helv",
+                    lineheight=line_height  # 設置行間距
                 )
                 logger.info(f"回退到默認字體插入文字成功: {text[:30]}...")
                 return True
