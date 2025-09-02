@@ -230,7 +230,7 @@ class QwenVLMClient:
                 f"{self.api_url}/v1/chat/completions",
                 headers=self.headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=120)
+                timeout=aiohttp.ClientTimeout(total=300)
             ) as response:
                 
                 if response.status == 200:

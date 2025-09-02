@@ -246,7 +246,7 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                     logger.info(f"開始並發 OCR 處理 {len(pages_base64_list)} 頁...")
                     
                     # 設置並發數，根據頁面數量調整
-                    max_concurrent = min(15, len(pages_base64_list))  # 最多5個並發
+                    max_concurrent = min(10, len(pages_base64_list))  # 最多5個並發
                     
                     ocr_results = vlm_client.analyze_images_concurrent_sync(
                         pages_base64_list, 
@@ -481,24 +481,27 @@ def main():
     # 處理每個 PDF 文件
     for pdf_file in pdf_files:
         images_info = pdf_images_data[str(pdf_file)]
-        use_page_mode = False
+        use_page_mode = True
         
+        if len(images_info) == 0:
+            print(f"\n📝 {pdf_file.name} 中沒有圖片，將跳過")
+            continue
         # 檢查圖片數量，如果超過 10 個則詢問用戶
-        if len(images_info) > 10:
-            print(f"\n📊 {pdf_file.name} 包含 {len(images_info)} 張圖片")
-            print("由於圖片數量較多，建議使用以下處理方式：")
-            print("1. 圖片模式：逐一分析每張圖片（較詳細但耗時）")
-            print("2. 頁面模式：將每頁轉換為圖片進行 OCR（較快速）")
+        # if len(images_info) > 10:
+        #     print(f"\n📊 {pdf_file.name} 包含 {len(images_info)} 張圖片")
+        #     print("由於圖片數量較多，建議使用以下處理方式：")
+        #     print("1. 圖片模式：逐一分析每張圖片（較詳細但耗時）")
+        #     print("2. 頁面模式：將每頁轉換為圖片進行 OCR（較快速）")
             
-            mode_choice = input("請選擇處理模式 (1=圖片模式, 2=頁面模式): ").strip()
+        #     mode_choice = input("請選擇處理模式 (1=圖片模式, 2=頁面模式): ").strip()
             
-            if mode_choice == "2":
-                use_page_mode = True
-                print(f"✅ 選擇頁面模式處理 {pdf_file.name}")
-            else:
-                print(f"✅ 選擇圖片模式處理 {pdf_file.name}")
-        else:
-            print(f"\n📊 {pdf_file.name} 包含 {len(images_info)} 張圖片，使用圖片模式處理")
+        #     if mode_choice == "2":
+        #         use_page_mode = True
+        #         print(f"✅ 選擇頁面模式處理 {pdf_file.name}")
+        #     else:
+        #         print(f"✅ 選擇圖片模式處理 {pdf_file.name}")
+        # else:
+        #     print(f"\n📊 {pdf_file.name} 包含 {len(images_info)} 張圖片，使用圖片模式處理")
         
         output_file = output_dir / f"enhanced_{pdf_file.name}"
         logger.info(f"處理文件: {pdf_file.name}")
