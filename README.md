@@ -134,6 +134,8 @@ docker-compose logs pdf-processor
 ## 遇到的問題
 1. 原先想說直接抓頁面的每一張的圖片做 ocr，但發現項流程圖的圖片可能會是有幾百張圖片組成
 <img width="743" height="810" alt="image" src="https://github.com/user-attachments/assets/8b2c955b-9f0d-4853-ae5a-e9f941c9f329" />
+
+
 2. 改為將頁面轉為圖片，丟給 VLM 做 OCR
 
 
