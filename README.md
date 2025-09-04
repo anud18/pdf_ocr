@@ -10,7 +10,7 @@ LLM 對 PDF 裡面的圖片無法解讀，或許可以透過 OCR 的技術讓 LL
 LLM 可以回答出 按下正反轉按鍵後，下一步？ 這個問題
 
 ## 嘗試的解法
-1. 將該頁面丟給 VLM 來回答
+1. 將該頁面丟給 VLM 來回答(high cost)
 * Gemini2.5 pro
 
 <img width="1092" height="429" alt="image" src="https://github.com/user-attachments/assets/cd9cfae3-7e60-49ad-97dc-3d632993bdf2" />
@@ -61,6 +61,14 @@ LLM 可以回答出 按下正反轉按鍵後，下一步？ 這個問題
 ## 小結：**按下正/反轉鍵的下一步是「開始自動量測」**，面板會顯示 **“TUN”**，接著系統自行完成測量並根據結果顯示 **“TEnd”**（成功）或 **“FAL”**（失敗），之後再依需求進行微調或結束。  
 
 若在操作過程中遇到任何顯示異常或量測失敗，請回到前面的設定步驟檢查配線與參數，確保所有設定與實際馬達規格相符後再重新執行。祝您量測順利！
+
+
+## 做 OCR 遇到的問題
+* 原先想說使用 PyMuPDF 去抓出每一頁中的圖片丟給 VLM 做 OCR, 但發現像流程圖可能是由數百張圖片所組成
+
+<img width="239" height="564" alt="image" src="https://github.com/user-attachments/assets/298069d4-1c0b-4b49-9ff5-99e1ea6b2b09" />
+
+* 改成將每一頁轉為影像檔作為輸入
 
 ## 功能特色
 
@@ -191,12 +199,7 @@ docker-compose logs pdf-processor
 - 根據 GPU 記憶體調整 `gpu-memory-utilization` 參數
 
 
-## 遇到的問題
-1. 原先想說直接抓頁面的每一張的圖片做 ocr，但發現項流程圖的圖片可能會是有幾百張圖片組成
-<img width="743" height="810" alt="image" src="https://github.com/user-attachments/assets/8b2c955b-9f0d-4853-ae5a-e9f941c9f329" />
 
-
-2. 改為將頁面轉為圖片，丟給 VLM 做 OCR
 
 
 ## 授權
