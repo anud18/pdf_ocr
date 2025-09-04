@@ -11,7 +11,7 @@ class VLLMClient:
     
     def __init__(self, base_url: str = None, model_name: str = None):
         self.base_url = base_url or os.getenv('VLLM_BASE_URL', 'http://localhost:8000')
-        self.model_name = model_name or os.getenv('VLLM_MODEL_NAME', 'default')
+        self.model_name = model_name or os.getenv('VLLM_MODEL_NAME', 'Qwen/Qwen2.5-VL-32B-Instruct')
         self.api_key = os.getenv('VLLM_API_KEY', '')
         
     def generate_response(self, prompt: str, max_tokens: int = 512, temperature: float = 0.7) -> str:
