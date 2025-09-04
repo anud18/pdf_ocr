@@ -1,0 +1,7 @@
+openai
+requests
+PyPDF2
+sentence-transformers
+faiss-cpu
+numpy
+python-dotenv
