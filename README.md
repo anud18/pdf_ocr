@@ -81,6 +81,7 @@ LLM 可以回答出 按下正反轉按鍵後，下一步？ 這個問題
 <img width="1866" height="438" alt="image" src="https://github.com/user-attachments/assets/e173574d-3a9b-49f4-9ae2-bc8e516a964f" />
 
 ### ChatGPT result
+<img width="1038" height="668" alt="image" src="https://github.com/user-attachments/assets/f4f8c38c-30eb-4485-bf8f-8b98999e4d8a" />
 
 ## 功能特色
 
