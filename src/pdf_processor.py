@@ -195,9 +195,8 @@ class PDFProcessor:
                 page,
                 text_rect,
                 full_text,
-                fontsize=4,  # 字體大小 4
-                color=(0, 0, 1),  # 藍色
-                line_height=4.2  # 緊湊行間距，字體大小的 1.05 倍
+                fontsize=6,  # 從 8 改為 6，字體更小
+                color=(0, 0, 1)  # 藍色
             )
         
         doc.save(output_path)
@@ -231,7 +230,6 @@ class PDFProcessor:
                     f"頁面 OCR 結果: {ocr_text}",
                     fontsize=5,  # 字體大小 5
                     color=(1, 0, 0),  # 紅色，更明顯
-                    line_height=5.2  # 緊湊行間距，字體大小的 1.04 倍
                 )
                 
                 if not success:
