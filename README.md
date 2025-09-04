@@ -69,6 +69,18 @@ LLM 可以回答出 按下正反轉按鍵後，下一步？ 這個問題
 <img width="239" height="564" alt="image" src="https://github.com/user-attachments/assets/298069d4-1c0b-4b49-9ff5-99e1ea6b2b09" />
 
 * 改成將每一頁轉為影像檔作為輸入
+<img width="1190" height="918" alt="image" src="https://github.com/user-attachments/assets/46f7de24-1f9c-454d-b8c6-07789510a1eb" />
+
+
+## 結果
+### Our result
+* 找到的文件
+<img width="1919" height="408" alt="image" src="https://github.com/user-attachments/assets/86df6e8e-d258-4e50-b3cb-4707d22ab83e" />
+
+* 回答
+<img width="1866" height="438" alt="image" src="https://github.com/user-attachments/assets/e173574d-3a9b-49f4-9ae2-bc8e516a964f" />
+
+### ChatGPT result
 
 ## 功能特色
 
