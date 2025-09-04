@@ -7,7 +7,7 @@ import numpy as np
 class DocumentProcessor:
     """文件處理器，負責 PDF 解析和文本分塊"""
     
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 400):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
