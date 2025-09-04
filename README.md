@@ -130,6 +130,13 @@ docker-compose logs pdf-processor
 - 批次處理多個 PDF 文件
 - 根據 GPU 記憶體調整 `gpu-memory-utilization` 參數
 
+
+## 遇到的問題
+1. 原先想說直接抓頁面的每一張的圖片做 ocr，但發現項流程圖的圖片可能會是有幾百張圖片組成
+<img width="743" height="810" alt="image" src="https://github.com/user-attachments/assets/8b2c955b-9f0d-4853-ae5a-e9f941c9f329" />
+2. 改為將頁面轉為圖片，丟給 VLM 做 OCR
+
+
 ## 授權
 
 本專案使用 MIT 授權條款。# pdf_ocr
