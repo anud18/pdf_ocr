@@ -95,7 +95,7 @@ class RAGSystem:
         ])
         
         # 構建提示詞
-        print(content)
+        # print(content)
         prompt = f"""基於以下文件內容，請回答用戶的問題。。
 
 文件內容:
