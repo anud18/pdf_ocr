@@ -12,9 +12,9 @@ if [ ! "$(ls -A input/*.pdf 2>/dev/null)" ]; then
 fi
 
 # 檢查 vLLM 服務是否運行
-if ! docker-compose ps vllm-qwen | grep -q "Up"; then
+if ! docker compose ps vllm-qwen | grep -q "Up"; then
     echo "🚀 啟動 vLLM 服務..."
-    docker-compose up -d vllm-qwen
+    docker compose up -d vllm-qwen
     
     echo "⏳ 等待服務啟動（這可能需要幾分鐘）..."
     sleep 30
@@ -22,7 +22,7 @@ fi
 
 # 運行處理程序
 echo "🖼️ 開始圖片分析和 OCR 處理..."
-docker-compose run --rm pdf-processor
+docker compose run --rm pdf-processor
 
 echo "✅ 處理完成！"
 echo "📄 結果文件保存在 output/ 目錄中"
