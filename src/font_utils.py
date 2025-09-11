@@ -93,10 +93,11 @@ class FontManager:
         return False
     
     def insert_text_with_font(self, page, rect, text, fontsize=8, color=(0, 0, 1)):
-        """使用適當的字體插入文字"""
+        """使用適當的字體插入文字，支持緊湊行間距"""
         font_name = self.get_best_font_for_text(text)
-        
+                
         try:
+            # 使用 insert_textbox 並設置緊湊的行間距
             page.insert_textbox(
                 rect,
                 text,

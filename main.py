@@ -190,35 +190,18 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
             # 保存頁面圖片
             pages_dir = pdf_processor.save_pages_as_images(input_pdf_path, "./extracted_pages")
             
-            # 對每頁進行 OCR
+            # 對每頁進行 OCR - 使用並發處理
             pages_ocr_results = []
             
             print(f"\n=== 頁面 OCR 結果 ===")
             print(f"文件: {input_pdf_path}")
             print(f"總共 {len(pages_info)} 頁\n")
             
-            for i, page_info in enumerate(pages_info):
-                logger.info(f"對第 {i+1}/{len(pages_info)} 頁進行 OCR...")
-                
-                # 轉換為 base64
-                image_base64 = pdf_processor.image_to_base64(page_info['image'])
-                
-                # 檢查 base64 數據是否有效
-                if not image_base64:
-                    logger.warning(f"第 {i+1} 頁 base64 轉換失敗，跳過 OCR")
-                    pages_ocr_results.append({
-                        'page_num': page_info['page_num'],
-                        'ocr_text': "頁面轉換失敗，無法進行 OCR"
-                    })
-                    continue
-                
-                # 使用 VLM 進行 OCR
-                ocr_text = ''
-                if test_mode:
-                    # 測試模式：模擬 OCR 結果
-                    # ocr_text = f"第 {i+1} 頁的模擬 OCR 文字內容 - 這是一個測試結果"
-                    ocr_text = """
-
+            if test_mode:
+                # 測試模式：模擬 OCR 結果
+                logger.info("使用測試模式，模擬 OCR 結果")
+                for i, page_info in enumerate(pages_info):
+                    ocr_text = f"""測試頁面 {i+1}
                     456645
                     4564564
                     4564564
@@ -227,31 +210,77 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                     4564564
                     4564564
                     """
-                else:
-                    ocr_result = vlm_client.analyze_image(image_base64, "ocr")
-                    ocr_text = ocr_result.get("content", "無文字內容") if ocr_result["success"] else "OCR 分析失敗"
-                    print(f"OCR 結果: {ocr_text}")
+                    
+                    sanitized_ocr = sanitize_text_for_pdf(ocr_text)
+                    pages_ocr_results.append({
+                        'page_num': page_info['page_num'],
+                        'ocr_text': sanitized_ocr
+                    })
+                    
+                    print(f"第 {i+1} 頁 OCR 結果:")
+                    print(f"  頁面尺寸: {page_info['width']}x{page_info['height']} 像素")
+                    print(f"  識別文字: {ocr_text}")
+                    print("-" * 50)
+            else:
+                # 準備所有頁面的 base64 數據
+                logger.info("準備頁面數據進行並發 OCR...")
+                pages_base64_list = []
+                valid_pages_info = []
                 
-                # 清洗並斷行，避免純數字長行寫入 PDF 失敗
-                sanitized_ocr = sanitize_text_for_pdf(ocr_text)
-                if sanitized_ocr != ocr_text:
-                    logger.info(f"第 {i+1} 頁 OCR 內容已清洗/斷行以適配 PDF")
+                for i, page_info in enumerate(pages_info):
+                    image_base64 = pdf_processor.image_to_base64(page_info['image'])
+                    
+                    if not image_base64:
+                        logger.warning(f"第 {i+1} 頁 base64 轉換失敗，跳過 OCR")
+                        pages_ocr_results.append({
+                            'page_num': page_info['page_num'],
+                            'ocr_text': "頁面轉換失敗，無法進行 OCR"
+                        })
+                        continue
+                    
+                    pages_base64_list.append(image_base64)
+                    valid_pages_info.append(page_info)
+                
+                if pages_base64_list:
+                    # 使用並發 OCR 處理
+                    logger.info(f"開始並發 OCR 處理 {len(pages_base64_list)} 頁...")
+                    
+                    # 設置並發數，根據頁面數量調整
+                    max_concurrent = min(10, len(pages_base64_list))  # 最多5個並發
+                    
+                    ocr_results = vlm_client.analyze_images_concurrent_sync(
+                        pages_base64_list, 
+                        prompt_type="ocr", 
+                        max_concurrent=max_concurrent
+                    )
+                    
+                    # 處理並發結果
+                    for i, (page_info, ocr_result) in enumerate(zip(valid_pages_info, ocr_results)):
+                        if ocr_result.get("success", False):
+                            ocr_text = ocr_result.get("content", "無文字內容")
+                        else:
+                            ocr_text = f"OCR 分析失敗: {ocr_result.get('error', '未知錯誤')}"
+                        
+                        # 清洗並斷行，避免純數字長行寫入 PDF 失敗
+                        sanitized_ocr = sanitize_text_for_pdf(ocr_text)
+                        if sanitized_ocr != ocr_text:
+                            logger.info(f"第 {i+1} 頁 OCR 內容已清洗/斷行以適配 PDF")
 
-                pages_ocr_results.append({
-                    'page_num': page_info['page_num'],
-                    'ocr_text': sanitized_ocr
-                })
-                
-                # 打印 OCR 結果
-                print(f"第 {i+1} 頁 OCR 結果:")
-                print(f"  頁面尺寸: {page_info['width']}x{page_info['height']} 像素")
-                if ocr_text and ocr_text != "無文字內容" and ocr_text != "OCR 分析失敗":
-                    print(f"  識別文字: {ocr_text}")
-                else:
-                    print(f"  識別文字: {ocr_text}")
-                print("-" * 50)
-                
-                logger.info(f"第 {i+1} 頁 OCR 完成")
+                        pages_ocr_results.append({
+                            'page_num': page_info['page_num'],
+                            'ocr_text': sanitized_ocr
+                        })
+                        
+                        # 打印 OCR 結果
+                        print(f"第 {i+1} 頁 OCR 結果:")
+                        print(f"  頁面尺寸: {page_info['width']}x{page_info['height']} 像素")
+                        if ocr_text and ocr_text != "無文字內容" and "OCR 分析失敗" not in ocr_text:
+                            print(f"  識別文字: {ocr_text}")
+                        else:
+                            print(f"  識別文字: {ocr_text}")
+                        print("-" * 50)
+                    
+                    logger.info(f"並發 OCR 處理完成")
             
             print(f"=== 頁面 OCR 完成 ===\n")
             
@@ -273,66 +302,121 @@ def process_pdf_with_vlm(input_pdf_path: str, output_pdf_path: str, use_page_mod
                 shutil.copy2(input_pdf_path, output_pdf_path)
                 return True
             
-            # 分析每張圖片
+            # 分析每張圖片 - 使用並發處理
             images_descriptions = []
             
             print(f"\n=== 圖片分析和 OCR 結果 ===")
             print(f"文件: {input_pdf_path}")
             print(f"總共 {len(images_info)} 張圖片\n")
             
-            for i, img_info in enumerate(images_info):
-                logger.info(f"分析第 {i+1}/{len(images_info)} 張圖片...")
-                
-                # 轉換為 base64
-                image_base64 = pdf_processor.image_to_base64(img_info['image'])
-                
-                # 檢查 base64 數據是否有效
-                if not image_base64:
-                    logger.warning(f"圖片 {i+1} base64 轉換失敗，跳過分析")
-                    images_descriptions.append({
-                        'page_num': img_info['page_num'],
-                        'rect': img_info['rect'],
-                        'description': "圖片轉換失敗，無法分析",
-                        'ocr_text': "無法提取文字"
-                    })
-                    continue
-                
-                # 使用 VLM 分析
-                if test_mode:
-                    # 測試模式：模擬分析結果
+            if test_mode:
+                # 測試模式：模擬分析結果
+                logger.info("使用測試模式，模擬圖片分析結果")
+                for i, img_info in enumerate(images_info):
                     analysis_result = {
                         'description': f"圖片 {i+1} 的模擬描述 - 這是一個測試圖片",
                         'ocr_text': f"圖片 {i+1} 的模擬 OCR 文字" if i % 3 == 0 else "無文字內容"
                     }
-                else:
-                    analysis_result = vlm_client.get_image_description_and_ocr(image_base64)
-                
-                # 對描述與 OCR 文字做清洗
-                desc = sanitize_text_for_pdf(analysis_result.get('description', ''))
-                ocr_txt = sanitize_text_for_pdf(analysis_result.get('ocr_text', ''))
-                if desc != analysis_result.get('description', '') or ocr_txt != analysis_result.get('ocr_text', ''):
-                    logger.info(f"圖片 {i+1} 文字內容已清洗/斷行以適配 PDF")
+                    
+                    desc = sanitize_text_for_pdf(analysis_result.get('description', ''))
+                    ocr_txt = sanitize_text_for_pdf(analysis_result.get('ocr_text', ''))
 
-                images_descriptions.append({
-                    'page_num': img_info['page_num'],
-                    'rect': img_info['rect'],
-                    'description': desc,
-                    'ocr_text': ocr_txt
-                })
-                
-                # 打印分析結果
-                print(f"圖片 {i+1} 分析結果:")
-                print(f"  頁面: {img_info['page_num'] + 1}")
-                print(f"  位置: x={img_info['rect'].x0:.1f}, y={img_info['rect'].y0:.1f}")
-                print(f"  尺寸: {img_info['image'].size[0]}x{img_info['image'].size[1]} 像素")
-                print(f"  描述: {analysis_result['description']}")
-                if analysis_result['ocr_text'] and analysis_result['ocr_text'] != "無文字內容":
+                    images_descriptions.append({
+                        'page_num': img_info['page_num'],
+                        'rect': img_info['rect'],
+                        'description': desc,
+                        'ocr_text': ocr_txt
+                    })
+                    
+                    print(f"圖片 {i+1} 分析結果:")
+                    print(f"  頁面: {img_info['page_num'] + 1}")
+                    print(f"  位置: x={img_info['rect'].x0:.1f}, y={img_info['rect'].y0:.1f}")
+                    print(f"  尺寸: {img_info['image'].size[0]}x{img_info['image'].size[1]} 像素")
+                    print(f"  描述: {analysis_result['description']}")
                     print(f"  OCR 文字: {analysis_result['ocr_text']}")
-                else:
-                    print(f"  OCR 文字: 無文字內容")
-                print("-" * 50)
+                    print("-" * 50)
+            else:
+                # 準備所有圖片的 base64 數據
+                logger.info("準備圖片數據進行並發分析...")
+                images_base64_list = []
+                valid_images_info = []
                 
-                logger.info(f"圖片 {i+1} 分析完成")
+                for i, img_info in enumerate(images_info):
+                    image_base64 = pdf_processor.image_to_base64(img_info['image'])
+                    
+                    if not image_base64:
+                        logger.warning(f"圖片 {i+1} base64 轉換失敗，跳過分析")
+                        images_descriptions.append({
+                            'page_num': img_info['page_num'],
+                            'rect': img_info['rect'],
+                            'description': "圖片轉換失敗，無法分析",
+                            'ocr_text': "無法提取文字"
+                        })
+                        continue
+                    
+                    images_base64_list.append(image_base64)
+                    valid_images_info.append(img_info)
+                
+                if images_base64_list:
+                    # 使用並發 OCR 處理
+                    logger.info(f"開始並發 OCR 處理 {len(images_base64_list)} 張圖片...")
+                    
+                    # 設置並發數，根據圖片數量調整
+                    max_concurrent = min(3, len(images_base64_list))  # 圖片模式用較少並發數
+                    
+                    ocr_results = vlm_client.analyze_images_concurrent_sync(
+                        images_base64_list, 
+                        prompt_type="ocr", 
+                        max_concurrent=max_concurrent
+                    )
+                    
+                    # 如果需要描述，再進行一次並發請求
+                    desc_results = vlm_client.analyze_images_concurrent_sync(
+                        images_base64_list, 
+                        prompt_type="description", 
+                        max_concurrent=max_concurrent
+                    )
+                    
+                    # 處理並發結果
+                    for i, (img_info, ocr_result, desc_result) in enumerate(zip(valid_images_info, ocr_results, desc_results)):
+                        # 處理 OCR 結果
+                        if ocr_result.get("success", False):
+                            ocr_text = ocr_result.get("content", "無文字內容")
+                        else:
+                            ocr_text = f"OCR 分析失敗: {ocr_result.get('error', '未知錯誤')}"
+                        
+                        # 處理描述結果
+                        if desc_result.get("success", False):
+                            description = desc_result.get("content", "無法獲取描述")
+                        else:
+                            description = f"描述分析失敗: {desc_result.get('error', '未知錯誤')}"
+                        
+                        # 對描述與 OCR 文字做清洗
+                        desc = sanitize_text_for_pdf(description)
+                        ocr_txt = sanitize_text_for_pdf(ocr_text)
+                        if desc != description or ocr_txt != ocr_text:
+                            logger.info(f"圖片 {i+1} 文字內容已清洗/斷行以適配 PDF")
+
+                        images_descriptions.append({
+                            'page_num': img_info['page_num'],
+                            'rect': img_info['rect'],
+                            'description': desc,
+                            'ocr_text': ocr_txt
+                        })
+                        
+                        # 打印分析結果
+                        print(f"圖片 {i+1} 分析結果:")
+                        print(f"  頁面: {img_info['page_num'] + 1}")
+                        print(f"  位置: x={img_info['rect'].x0:.1f}, y={img_info['rect'].y0:.1f}")
+                        print(f"  尺寸: {img_info['image'].size[0]}x{img_info['image'].size[1]} 像素")
+                        print(f"  描述: {description}")
+                        if ocr_text and ocr_text != "無文字內容" and "OCR 分析失敗" not in ocr_text:
+                            print(f"  OCR 文字: {ocr_text}")
+                        else:
+                            print(f"  OCR 文字: {ocr_text}")
+                        print("-" * 50)
+                    
+                    logger.info(f"並發圖片分析處理完成")
             
             print(f"=== 圖片分析完成 ===\n")
             
@@ -397,24 +481,27 @@ def main():
     # 處理每個 PDF 文件
     for pdf_file in pdf_files:
         images_info = pdf_images_data[str(pdf_file)]
-        use_page_mode = False
+        use_page_mode = True
         
+        if len(images_info) == 0:
+            print(f"\n📝 {pdf_file.name} 中沒有圖片，將跳過")
+            continue
         # 檢查圖片數量，如果超過 10 個則詢問用戶
-        if len(images_info) > 10:
-            print(f"\n📊 {pdf_file.name} 包含 {len(images_info)} 張圖片")
-            print("由於圖片數量較多，建議使用以下處理方式：")
-            print("1. 圖片模式：逐一分析每張圖片（較詳細但耗時）")
-            print("2. 頁面模式：將每頁轉換為圖片進行 OCR（較快速）")
+        # if len(images_info) > 10:
+        #     print(f"\n📊 {pdf_file.name} 包含 {len(images_info)} 張圖片")
+        #     print("由於圖片數量較多，建議使用以下處理方式：")
+        #     print("1. 圖片模式：逐一分析每張圖片（較詳細但耗時）")
+        #     print("2. 頁面模式：將每頁轉換為圖片進行 OCR（較快速）")
             
-            mode_choice = input("請選擇處理模式 (1=圖片模式, 2=頁面模式): ").strip()
+        #     mode_choice = input("請選擇處理模式 (1=圖片模式, 2=頁面模式): ").strip()
             
-            if mode_choice == "2":
-                use_page_mode = True
-                print(f"✅ 選擇頁面模式處理 {pdf_file.name}")
-            else:
-                print(f"✅ 選擇圖片模式處理 {pdf_file.name}")
-        else:
-            print(f"\n📊 {pdf_file.name} 包含 {len(images_info)} 張圖片，使用圖片模式處理")
+        #     if mode_choice == "2":
+        #         use_page_mode = True
+        #         print(f"✅ 選擇頁面模式處理 {pdf_file.name}")
+        #     else:
+        #         print(f"✅ 選擇圖片模式處理 {pdf_file.name}")
+        # else:
+        #     print(f"\n📊 {pdf_file.name} 包含 {len(images_info)} 張圖片，使用圖片模式處理")
         
         output_file = output_dir / f"enhanced_{pdf_file.name}"
         logger.info(f"處理文件: {pdf_file.name}")
